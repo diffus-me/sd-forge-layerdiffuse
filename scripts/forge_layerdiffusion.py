@@ -55,7 +55,7 @@ def load_layer_model_state_dict(filename):
 
 class LayerDiffusionForForge(scripts.Script):
     def title(self):
-        return "LayerDiffuse"
+        return "Transparent Image Generator (LayerDiffuse)"
 
     def show(self, is_img2img):
         return scripts.AlwaysVisible
