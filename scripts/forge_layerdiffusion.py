@@ -21,6 +21,8 @@ from modules_forge.forge_canvas.canvas import ForgeCanvas
 from modules import images
 from PIL import Image, ImageOps
 
+from modules.system_monitor import monitor_call_context
+
 
 def is_model_loaded(model):
     return any(model == m.model for m in memory_management.current_loaded_models)
@@ -58,9 +60,10 @@ class LayerDiffusionForForge(scripts.Script):
     def show(self, is_img2img):
         return scripts.AlwaysVisible
 
-    def ui(self, *args, **kwargs):
+    def ui(self, is_img2img):
+        tabname = "img2img" if is_img2img else "txt2img"
         with gr.Accordion(open=False, label=self.title()):
-            enabled = gr.Checkbox(label='Enabled', value=False)
+            enabled = gr.Checkbox(label='Enabled', value=False, elem_id=f"{tabname}-layerdiffusion-enable")
             method = gr.Dropdown(choices=[e.value for e in LayerMethod], value=LayerMethod.FG_ONLY_ATTN.value, label="Method", type='value')
             gr.HTML('</br>')  # some strange gradio problems
 
@@ -119,6 +122,23 @@ class LayerDiffusionForForge(scripts.Script):
         return enabled, method, weight, ending_step, fg_image, bg_image, blend_image, resize_mode, output_origin, fg_additional_prompt, bg_additional_prompt, blend_additional_prompt
 
     def process_before_every_sampling(self, p: StableDiffusionProcessing, *script_args, **kwargs):
+        enabled = script_args[0]
+
+        if not enabled:
+            return
+
+        with monitor_call_context(
+            p.get_request(),
+            "extensions.layerdiffusion",
+            "extensions.layerdiffusion",
+            decoded_params={},
+            only_available_for=["plus", "pro", "api"],
+        ):
+            return self._process_before_every_sampling(p, *script_args, **kwargs)
+
+    def _process_before_every_sampling(self, p: StableDiffusionProcessing, *script_args, **kwargs):
+        global vae_transparent_decoder, vae_transparent_encoder
+
         # This will be called before every sampling.
         # If you use highres fix, this will be called twice.
 
