@@ -11,6 +11,12 @@ from diffusers.models.unet_2d_blocks import UNetMidBlock2D, get_down_block, get_
 import ldm_patched.modules.model_management as model_management
 from ldm_patched.modules.model_patcher import ModelPatcher
 
+from PIL import Image
+from modules.shared import opts
+from modules.processing import create_infotext
+from modules.nsfw import nsfw_blur
+from modules.images import save_image
+
 
 def zero_module(module):
     """
@@ -248,6 +254,9 @@ class TransparentVAEDecoder:
             model_management.load_model_gpu(self.model)
             vis_list = []
 
+            def infotext(index=0, use_main_prompt=False):
+                return create_infotext(p, p.prompts, p.seeds, p.subseeds, use_main_prompt=use_main_prompt, index=index, all_negative_prompts=p.negative_prompts)
+
             for i in range(int(latent.shape[0])):
                 if self.mod_number != 1 and i % self.mod_number != 0:
                     vis_list.append(pixel[i:i+1].movedim(1, -1))
@@ -270,7 +279,13 @@ class TransparentVAEDecoder:
 
                 png = torch.cat([fg, alpha], dim=3)[0]
                 png = (png * 255.0).detach().cpu().float().numpy().clip(0, 255).astype(np.uint8)
-                p.extra_result_images.append(png)
+
+                image = Image.fromarray(png)
+                image = nsfw_blur(image, p)
+                if p.save_samples() and not getattr(image, "is_nsfw", False):
+                    save_image(image, p.outpath_samples, "", f"rgba-{p.seeds[i]}", p.prompts[i], opts.samples_format, info=infotext(i), p=p)
+
+                p.extra_result_images.append(image)
 
             vis_list = torch.cat(vis_list, dim=0)
             return vis_list
