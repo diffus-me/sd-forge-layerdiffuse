@@ -22,6 +22,10 @@ from modules import images
 from PIL import Image, ImageOps
 
 from modules.system_monitor import monitor_call_context
+from modules.shared import opts
+from modules.processing import create_infotext
+from modules.nsfw import nsfw_blur
+from modules.images import save_image
 
 
 def is_model_loaded(model):
@@ -393,6 +397,14 @@ class LayerDiffusionForForge(scripts.Script):
                 latent = torch.zeros((lC, pixel.height // 8, pixel.width // 8)).to(latent)
 
             png, vis = vae_transparent_decoder.decode(latent, pixel)
+
+            def infotext(index=0, use_main_prompt=False):
+                return create_infotext(p, p.prompts, p.seeds, p.subseeds, use_main_prompt=use_main_prompt, index=index, all_negative_prompts=p.negative_prompts)
+
+            png = nsfw_blur(png, p)
+            if p.save_samples() and not getattr(png, "is_nsfw", False):
+                save_image(png, p.outpath_samples, "", f"rgba-{p.seeds[i]}", p.prompts[i], opts.samples_format, info=infotext(i), p=p)
+
             pp.image = png
             p.extra_result_images.append(vis)
         return
