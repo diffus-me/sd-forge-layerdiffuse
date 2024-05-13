@@ -136,7 +136,8 @@ class LayerDiffusionForForge(scripts.Script):
             "extensions.layerdiffusion",
             "extensions.layerdiffusion",
             decoded_params={},
-            only_available_for=["plus", "pro", "api"],
+            feature_type="generate",
+            feature_name="LayerDiffusion",
         ):
             return self._process_before_every_sampling(p, *script_args, **kwargs)
 
