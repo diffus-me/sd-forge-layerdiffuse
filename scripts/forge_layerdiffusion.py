@@ -24,7 +24,6 @@ from PIL import Image, ImageOps
 from modules.system_monitor import monitor_call_context
 from modules.shared import opts
 from modules.processing import create_infotext
-from modules.nsfw import nsfw_blur
 from modules.images import save_image
 
 
@@ -402,9 +401,11 @@ class LayerDiffusionForForge(scripts.Script):
             def infotext(index=0, use_main_prompt=False):
                 return create_infotext(p, p.prompts, p.seeds, p.subseeds, use_main_prompt=use_main_prompt, index=index, all_negative_prompts=p.negative_prompts)
 
-            png, nsfw_result = nsfw_blur(png, p.prompts[i], p)
-            if p.save_samples() and not getattr(png, "is_nsfw", False):
-                save_image(png, p.outpath_samples, "", f"rgba-{p.seeds[i]}", p.prompts[i], opts.samples_format, info=infotext(i), p=p, nsfw_result=nsfw_result)
+            if p.save_samples():
+                _, _, gallery_response = save_image(png, p.outpath_samples, "", f"rgba-{p.seeds[i]}", p.prompts[i], opts.samples_format, info=infotext(i), p=p)
+                if gallery_response["is_nsfw"]:
+                    png = images.blur_image(png)
+                    setattr(png, "is_nsfw", True)
 
             pp.image = png
             p.extra_result_images.append(vis)
